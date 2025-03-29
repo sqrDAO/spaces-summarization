@@ -1,15 +1,18 @@
 {
-  "name": "space-summarize",
+  "name": "spaces-summarization",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Service to download and summarize Twitter Spaces",
+  "main": "api/index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node api/index.js",
+    "test": "echo \"No tests configured\" && exit 0"
   },
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@google/generative-ai": "^0.24.0",
-    "dotenv": "^16.4.7"
+    "@google/generative-ai": "^0.2.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
   }
 }

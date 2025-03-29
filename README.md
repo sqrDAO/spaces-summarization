@@ -1,11 +1,21 @@
 # spaces-summarization
 
+## install YT-DLP
+https://github.com/yt-dlp/yt-dlp
+
+```bash
+python3 -m pip install -U "yt-dlp[default]"
+
+```
+
 ## Install dependencies
 
-You must install [ffmpeg](https://www.ffmpeg.org/download.html) before running the scripts.
+First install ffmpeg
+```
+brew install ffmpeg
+```
 
-Run the following command:
-
+Then
 ```bash
 npm i
 ```
@@ -13,7 +23,7 @@ npm i
 ## Download Spaces audio
 
 ```bash
-./tools/yt-dlp -i <spaces_link> -o ./audios/<output_file_name>.mp3
+yt-dlp -i <spaces_link> -o ./audios/<output_file_name>.mp3
 ```
 
 ## Summarize audio
