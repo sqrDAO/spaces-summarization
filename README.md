@@ -59,7 +59,7 @@ A containerized service for downloading Twitter Spaces audio using yt-dlp and ge
 
 ### Customizing Prompts
 
-Prompts for summarization are stored in prompts.js. You can modify existing prompts or add new ones.
+Prompts for summarization are stored in `config/prompts.js`. You can modify existing prompts or add new ones.
 
 ```javascript
 export default {
@@ -151,6 +151,21 @@ curl -X POST http://localhost:3000/summarize-spaces \
   }'
 ```
 
+## Testing
+
+The repository includes a simple test script to verify functionality:
+
+```bash
+# Basic test with default prompt
+node test-space.js
+
+# Test with a specific space URL
+SPACE_URL="https://twitter.com/i/spaces/YOUR_SPACE_ID" node test-space.js
+
+# Test with a specific prompt type
+PROMPT_TYPE="formatted" node test-space.js
+```
+
 ## Docker Deployment
 
 ### Building the Docker Image
@@ -198,10 +213,18 @@ To use this service with n8n:
 
 - **API Layer**: Express.js REST API (`api/index.js`)
 - **Service Layer**: 
-  - `YtDlpService`: Handles downloading and caching of Spaces audio
-  - `SummarizationService`: Handles audio processing and summarization
-- **Configuration**: External configuration for customizable prompts
+  - `YtDlpService`: Handles downloading and caching of Spaces audio with a neat progress bar
+  - `SummarizationService`: Handles audio processing and summarization using Google's Gemini API
+- **Configuration**: External configuration for customizable prompts in `config/prompts.js`
 - **Storage**: Local file system for audio files (mapped to persistent volume in Kubernetes)
+
+## API Dependencies
+
+This project uses the following key dependencies:
+
+- `@google/genai`: The official Google AI SDK for Node.js for accessing Gemini models
+- `yt-dlp`: Python-based tool for downloading audio from Twitter Spaces
+- `express`: Web framework for the REST API
 
 ## Legacy CLI Usage
 

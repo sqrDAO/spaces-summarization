@@ -1,36 +1,39 @@
-FROM node:20-slim
+# Base image
+FROM node:18-alpine3.19
 
-# Install dependencies
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip ffmpeg curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install Python and other dependencies
+RUN apk add --no-cache python3 py3-pip ffmpeg-libs
 
-# Install yt-dlp
-RUN pip3 install --no-cache-dir yt-dlp
-
-# Create app directory
+# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install Node.js dependencies
+RUN npm ci
+
+# Create and use a virtual environment for yt-dlp
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3 install --no-cache-dir 'yt-dlp[default]'
+
+# Create directory for audio files
+RUN mkdir -p /app/audios
 
 # Copy application code
 COPY . .
-
-# Create output directory
-RUN mkdir -p audios
-
-# Expose the port
-EXPOSE 3000
 
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV OUTPUT_DIR=/app/audios
 
-# Run the application
+# Expose port
+EXPOSE 3000
+
+# Set volume for persistent storage
+VOLUME [ "/app/audios" ]
+
+# Start the service
 CMD ["node", "api/index.js"]
