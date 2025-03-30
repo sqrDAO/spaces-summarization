@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jobs Monitor</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background-color: #f2f2f2; }
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+    .queued { background-color: #e0e0e0; }
+    .processing { background-color: #fff3cd; }
+    .completed { background-color: #d4edda; }
+    .failed { background-color: #f8d7da; }
+    button { padding: 5px 10px; cursor: pointer; }
+    pre { background: #f8f9fa; padding: 10px; overflow: auto; max-height: 400px; }
+  </style>
+</head>
+<body>
+  <h1>Jobs Monitor</h1>
+  <div>
+    <button onclick="loadJobs()">Refresh</button>
+    <span id="last-updated"></span>
+  </div>
+  
+  <h2>Active Jobs</h2>
+  <table id="active-jobs">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  
+  <h2>Completed Jobs</h2>
+  <table id="completed-jobs">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  
+  <div id="job-details" style="margin-top: 20px; display: none;">
+    <h2>Job Details</h2>
+    <pre id="details-content"></pre>
+  </div>
+  
+  <script>
+    // Get/set API key
+    function getApiKey() {
+      let key = localStorage.getItem('api_key');
+      if (!key) {
+        key = prompt("Enter your API key:");
+        if (key) localStorage.setItem('api_key', key);
+      }
+      return key;
+    }
+    
+    // Load jobs from API
+    async function loadJobs() {
+      const apiKey = getApiKey();
+      if (!apiKey) return;
+      
+      try {
+        const response = await fetch('/api/jobs', {
+          headers: {
+            'X-API-Key': apiKey
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('api_key');
+            alert('Invalid API key');
+            return;
+          }
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Update last updated time
+        document.getElementById('last-updated').textContent = 
+          `Last updated: ${new Date().toLocaleTimeString()}`;
+        
+        // Split jobs
+        const activeJobs = data.jobs.filter(j => 
+          j.status === 'queued' || j.status === 'processing');
+        const completedJobs = data.jobs.filter(j => 
+          j.status === 'completed' || j.status === 'failed');
+        
+        // Sort by date
+        activeJobs.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        completedJobs.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        
+        // Display active jobs
+        const activeTable = document.querySelector('#active-jobs tbody');
+        activeTable.innerHTML = '';
+        
+        if (activeJobs.length === 0) {
+          activeTable.innerHTML = '<tr><td colspan="6">No active jobs</td></tr>';
+        } else {
+          activeJobs.forEach(job => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${job.id}</td>
+              <td>${job.type}</td>
+              <td><span class="status-badge ${job.status}">${job.status}</span></td>
+              <td>${new Date(job.createdAt).toLocaleString()}</td>
+              <td>${new Date(job.updatedAt).toLocaleString()}</td>
+              <td><button onclick="viewJobDetails('${job.id}')">View</button></td>
+            `;
+            activeTable.appendChild(row);
+          });
+        }
+        
+        // Display completed jobs
+        const completedTable = document.querySelector('#completed-jobs tbody');
+        completedTable.innerHTML = '';
+        
+        if (completedJobs.length === 0) {
+          completedTable.innerHTML = '<tr><td colspan="6">No completed jobs</td></tr>';
+        } else {
+          completedJobs.forEach(job => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${job.id}</td>
+              <td>${job.type}</td>
+              <td><span class="status-badge ${job.status}">${job.status}</span></td>
+              <td>${new Date(job.createdAt).toLocaleString()}</td>
+              <td>${new Date(job.updatedAt).toLocaleString()}</td>
+              <td>
+                <button onclick="viewJobDetails('${job.id}')">View</button>
+              </td>
+            `;
+            completedTable.appendChild(row);
+          });
+        }
+      } catch (error) {
+        console.error("Error loading jobs:", error);
+        alert("Error loading jobs: " + error.message);
+      }
+    }
+    
+    // Display job details
+    async function viewJobDetails(jobId) {
+      const apiKey = getApiKey();
+      if (!apiKey) return;
+      
+      try {
+        const response = await fetch(`/api/jobs/${jobId}`, {
+          headers: {
+            'X-API-Key': apiKey
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Display details
+        document.getElementById('job-details').style.display = 'block';
+        document.getElementById('details-content').textContent = 
+          JSON.stringify(data.job, null, 2);
+      } catch (error) {
+        console.error("Error loading job details:", error);
+        alert("Error loading job details: " + error.message);
+      }
+    }
+    
+    // Load jobs on page load
+    document.addEventListener('DOMContentLoaded', loadJobs);
+    
+    // Auto-refresh every 5 seconds
+    setInterval(loadJobs, 5000);
+  </script>
+</body>
+</html>

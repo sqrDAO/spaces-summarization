@@ -1,17 +1,82 @@
-import { exec, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import Queue from 'better-queue';
 
 class YtDlpService {
   constructor(config = {}) {
     this.outputDir = config.outputDir || './audios';
     this.ytDlpPath = config.ytDlpPath || 'yt-dlp';
+    this.jobsService = config.jobsService;
+    
+    // Create a download queue
+    this.downloadQueue = new Queue((task, cb) => {
+      // Call our internal download method
+      this._downloadAudio(task.spacesLink)
+        .then(result => {
+          // Update job status if this is async job
+          if (task.jobId && this.jobsService) {
+            this.jobsService.updateJob(task.jobId, 'completed', { result });
+          }
+          cb(null, result);
+        })
+        .catch(err => {
+          // Update job status if this is async job
+          if (task.jobId && this.jobsService) {
+            this.jobsService.updateJob(task.jobId, 'failed', { error: err.message });
+          }
+          cb(err);
+        });
+    }, { 
+      concurrent: 2,  // Process 2 downloads at once
+      maxRetries: 2,
+      retryDelay: 2000
+    });
 
     // Ensure output directory exists
     if (!fs.existsSync(this.outputDir)) {
       fs.mkdirSync(this.outputDir, { recursive: true });
     }
+  }
+  
+  /**
+   * Start an asynchronous download job
+   * @param {string} spacesLink - URL of the Twitter Space
+   * @returns {string} - Job ID for tracking status
+   */
+  startAsyncDownload(spacesLink) {
+    if (!spacesLink) {
+      throw new Error('Spaces link is required');
+    }
+    
+    if (!this.jobsService) {
+      throw new Error('JobsService not configured');
+    }
+    
+    // Check for cached file for immediate response
+    const cachedFilePath = this.getCachedFile(spacesLink);
+    if (cachedFilePath) {
+      // Create and immediately complete job
+      const jobId = this.jobsService.createJob('download', { spacesLink });
+      this.jobsService.updateJob(jobId, 'completed', {
+        result: {
+          outputPath: cachedFilePath,
+          cached: true,
+          filename: path.basename(cachedFilePath)
+        }
+      });
+      return jobId;
+    }
+    
+    // Create new job and add to queue
+    const jobId = this.jobsService.createJob('download', { spacesLink });
+    
+    // Add to download queue with job ID
+    this.jobsService.updateJob(jobId, 'processing');
+    this.downloadQueue.push({ spacesLink, jobId });
+    
+    return jobId;
   }
 
   /**
@@ -40,7 +105,8 @@ class YtDlpService {
   }
 
   /**
-   * Download audio from a Twitter Spaces link
+   * Public method: Add a download request to the queue
+   * This maintains the original synchronous API
    * @param {string} spacesLink - URL of the Twitter Spaces
    * @returns {Promise<Object>} - Result object with file path and cache status
    */
@@ -50,6 +116,34 @@ class YtDlpService {
     }
 
     // Check if we already have this file downloaded
+    const cachedFilePath = this.getCachedFile(spacesLink);
+    if (cachedFilePath) {
+      return {
+        outputPath: cachedFilePath,
+        cached: true,
+        filename: path.basename(cachedFilePath)
+      };
+    }
+
+    // Not cached - add to queue and return a promise
+    return new Promise((resolve, reject) => {
+      this.downloadQueue.push({
+        spacesLink: spacesLink
+      }, (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+  }
+
+  /**
+   * Internal method: Actual download logic (called by the queue)
+   * @param {string} spacesLink - URL of the Twitter Spaces
+   * @returns {Promise<Object>} - Result object with file path and cache status
+   * @private
+   */
+  async _downloadAudio(spacesLink) {
+    // Double-check cache (in case another request downloaded it while waiting in queue)
     const cachedFilePath = this.getCachedFile(spacesLink);
     if (cachedFilePath) {
       return {

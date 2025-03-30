@@ -64,7 +64,7 @@ Include your API key in the header of all requests:
 X-API-Key: your-secret-key
 ```
 
-### Download a Twitter Space
+### Download a Twitter Space (Not recommend, please use the Asynchronous version)
 
 ```bash
 curl -X POST http://localhost:3000/api/download-spaces \
@@ -104,6 +104,58 @@ curl -X POST http://localhost:3000/api/summarize-spaces \
 ```bash
 curl -X GET http://localhost:3000/api/prompts \
   -H "X-API-Key: your-secret-key"
+```
+
+## Asynchronous API
+
+For long downloads or when handling multiple requests, use the asynchronous endpoints:
+
+### Start an Asynchronous Download
+
+```bash
+curl -X POST http://localhost:3000/api/async/download-spaces \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "spacesUrl": "https://twitter.com/i/spaces/YOUR_SPACE_ID"
+  }'
+```
+
+This returns immediately with a job ID:
+```json
+{
+  "success": true,
+  "message": "Download job started",
+  "jobId": "job_1647582390_a1b2c3"
+}
+```
+
+### Check Job Status
+
+```bash
+curl -X GET http://localhost:3000/api/jobs/job_1647582390_a1b2c3 \
+  -H "X-API-Key: your-secret-key"
+```
+
+### List All Jobs
+
+```bash
+curl -X GET http://localhost:3000/api/jobs \
+  -H "X-API-Key: your-secret-key"
+```
+
+### Check Queue Status
+
+```bash
+curl -X GET http://localhost:3000/api/queue-status \
+  -H "X-API-Key: your-secret-key"
+```
+
+### Job Monitoring Dashboard
+
+A web-based job monitoring dashboard is available at:
+```
+http://localhost:3000/jobs.html
 ```
 
 ## API Documentation
