@@ -1,18 +1,47 @@
 import express from 'express';
+import dotenv from 'dotenv';
 import YtDlpService from '../services/yt-dlp-service.js';
 import SummarizationService from '../services/summarization-service.js';
-import dotenv from 'dotenv';
-import path from 'path';
+import {apiKeyAuth} from '../middleware/auth.js';
 import customPrompts from '../config/prompts.js';
+import swaggerJsDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 
 // Load environment variables
 dotenv.config();
+
+// Swagger setup
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Spaces Summarization API',
+      version: '1.0.0',
+      description: 'API for downloading and summarizing Twitter Spaces'
+    },
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key'
+        }
+      }
+    }
+  },
+  apis: ['./api/index.js']
+};
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware for parsing JSON
 app.use(express.json());
+
+// Add Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Configure services
 const ytDlpService = new YtDlpService({
@@ -30,8 +59,30 @@ if (process.env.GOOGLE_API_KEY) {
   console.warn('WARNING: GOOGLE_API_KEY not set. Summarization service will not be available.');
 }
 
-// Download Spaces endpoint
-app.post('/download-spaces', async (req, res) => {
+// Apply authentication middleware to all API routes
+app.use('/api', apiKeyAuth);
+
+// API routes with prefix
+/**
+ * @swagger
+ * /api/download-spaces:
+ *   post:
+ *     summary: Download audio from a Twitter Space
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               spacesUrl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully downloaded
+ */
+app.post('/api/download-spaces', async (req, res) => {
   try {
     const { spacesUrl } = req.body;
     
@@ -56,8 +107,30 @@ app.post('/download-spaces', async (req, res) => {
   }
 });
 
-// Summarize audio endpoint
-app.post('/summarize-spaces', async (req, res) => {
+/**
+ * @swagger
+ * /api/summarize-spaces:
+ *   post:
+ *     summary: Summarize a Twitter Space
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               spacesUrl:
+ *                 type: string
+ *               promptType:
+ *                 type: string
+ *               customPrompt:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully summarized
+ */
+app.post('/api/summarize-spaces', async (req, res) => {
   try {
     // Check if summarization service is available
     if (!summarizationService) {
@@ -102,8 +175,18 @@ app.post('/summarize-spaces', async (req, res) => {
   }
 });
 
-// Reload prompts endpoint
-app.post('/reload-prompts', async (req, res) => {
+/**
+ * @swagger
+ * /api/prompts:
+ *   get:
+ *     summary: Get available prompt templates
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available prompts
+ */
+app.get('/api/prompts', (req, res) => {
   try {
     if (!summarizationService) {
       return res.status(503).json({ 
@@ -112,27 +195,30 @@ app.post('/reload-prompts', async (req, res) => {
       });
     }
     
-    // Clear module cache to force reload
-    delete require.cache[require.resolve('../config/prompts.js')];
-    
-    // Re-import the prompts
-    const freshPrompts = (await import('../config/prompts.js?t=' + Date.now())).default;
-    
-    // Update the service
-    summarizationService.prompts = freshPrompts;
-    
     res.json({
       success: true,
-      message: 'Prompts reloaded successfully',
       availablePrompts: summarizationService.getAvailablePrompts()
     });
   } catch (error) {
-    console.error('Error reloading prompts:', error);
+    console.error('Error fetching prompts:', error);
     res.status(500).json({ 
-      error: 'Failed to reload prompts',
+      error: 'Failed to fetch prompts',
       message: error.message
     });
   }
+});
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     responses:
+ *       200:
+ *         description: Service health status
+ */
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 // Start the server
