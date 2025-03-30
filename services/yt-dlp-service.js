@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -81,25 +81,92 @@ class YtDlpService {
    */
   executeDownload(spacesLink, outputPath) {
     return new Promise((resolve, reject) => {
-      const command = `${this.ytDlpPath} -i "${spacesLink}" -o "${outputPath}"`;
+      console.log(`Downloading from: ${spacesLink}`);
+      console.log(`Output file: ${path.basename(outputPath)}`);
       
-      console.log(`Executing: ${command}`);
+      // Use spawn with progress flags but capture output
+      const process = spawn(this.ytDlpPath, [
+        '-i',
+        '--progress',
+        '--newline',
+        '--quiet',           // Very quiet, only show errors
+        '--no-warnings',     // Reduces non-essential output
+        '--console-title',   // Updates terminal title with progress
+        spacesLink,
+        '-o', outputPath
+      ], { stdio: ['ignore', 'pipe', 'pipe'] }); // Capture output instead of inheriting
       
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error downloading: ${error.message}`);
-          console.error(`stderr: ${stderr}`);
-          return reject(error);
+      // Track the last progress line
+      let lastProgressLine = '';
+      
+      // Extract and display only the progress percentage
+      process.stdout.on('data', (data) => {
+        const output = data.toString();
+        // Look for lines with download progress indicators
+        const lines = output.split('\n');
+        for (const line of lines) {
+          // Filter for progress lines (they contain %)
+          if (line.includes('%')) {
+            // Extract just the percentage if possible
+            const percentMatch = line.match(/(\d+\.?\d*)%/);
+            if (percentMatch) {
+              const percent = percentMatch[1];
+              // Create a simple progress bar
+              const barLength = 30;
+              const completedLength = Math.round(barLength * (parseFloat(percent) / 100));
+              const bar = '█'.repeat(completedLength) + '░'.repeat(barLength - completedLength);
+              process.stdout.write(`\r\x1b[K[${bar}] ${percent}%`);
+            } else {
+              // Fall back to the whole line if we can't extract percentage
+              process.stdout.write('\r\x1b[K' + line.trim());
+            }
+            lastProgressLine = line.trim();
+          }
         }
+      });
+      
+      // Improve error filtering - suppress all common FFmpeg/HLS errors
+      process.stderr.on('data', (data) => {
+        // In most cases, we want to suppress these errors as they're just informational
+        // or related to the HLS stream details, not actual failures
+        const error = data.toString().trim();
         
-        console.log(`Download completed: ${outputPath}`);
-        console.log(`stdout: ${stdout}`);
+        // Only show critical errors - exclude warnings and common HLS info
+        const isCommonNonError = error.includes('WARNING:') || 
+                                error.includes('Metadata:') || 
+                                error.includes('variant_bitrate') ||
+                                error.includes('Stream #') ||
+                                error.includes('Duration:') ||
+                                error.includes('Press [q]') ||
+                                error.includes('Opening ');
         
-        if (fs.existsSync(outputPath)) {
-          resolve();
+        if (error && !isCommonNonError && !error.startsWith('Error: ')) {
+          console.error(`Error: ${error}`);
+        }
+      });
+      
+      // Handle process completion
+      process.on('close', (code) => {
+        // Clear the progress line
+        process.stdout.write('\r\x1b[K');
+        
+        if (code === 0) {
+          console.log(`✅ Download completed: ${path.basename(outputPath)}`);
+          if (fs.existsSync(outputPath)) {
+            resolve();
+          } else {
+            reject(new Error('Download failed: Output file not found'));
+          }
         } else {
-          reject(new Error('Download failed: Output file not found'));
+          console.error(`❌ Download failed with exit code ${code}`);
+          reject(new Error(`yt-dlp process exited with code ${code}`));
         }
+      });
+      
+      // Handle process errors
+      process.on('error', (error) => {
+        console.error(`Error executing yt-dlp: ${error.message}`);
+        reject(error);
       });
     });
   }

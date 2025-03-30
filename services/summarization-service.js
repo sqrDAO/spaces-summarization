@@ -1,5 +1,4 @@
-import { GoogleAIFileManager, FileState } from "@google/generative-ai/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI} from "@google/genai";
 import fs from "fs";
 import defaultPrompts from "../config/prompts.js";
 
@@ -27,65 +26,70 @@ class SummarizationService {
     }
 
     // Get the prompt to use
-    let prompt;
-    if (options.customPrompt) {
-      // Use the provided custom prompt
-      prompt = options.customPrompt;
-    } else if (options.promptType && this.prompts[options.promptType]) {
-      // Use a predefined prompt type
-      prompt = this.prompts[options.promptType];
-    } else {
-      // Use default prompt
-      prompt = this.prompts.default;
-    }
+    let prompt = this.getPrompt(options);
+    
+    console.log(`Audio file loaded: ${audioFilePath}`);
+    console.log('Processing with Gemini API...');
 
-    // Initialize Google AI services
-    const fileManager = new GoogleAIFileManager(this.apiKey);
-
-    // Upload the audio file
+    // Initialize the Gemini API client
+    const genAI = new GoogleGenAI(this.apiKey);
+    
+    // Upload the file
     console.log(`Uploading file ${audioFilePath}...`);
-    const uploadResult = await fileManager.uploadFile(audioFilePath, {
-      mimeType: "audio/mp3",
-      displayName: "Spaces audio",
+    const file = await genAI.files.upload({
+      file: audioFilePath,
+      config:{ mimeType: "audio/mp3"},
     });
 
-    // Wait for processing to complete
-    let file = await fileManager.getFile(uploadResult.file.name);
-    while (file.state === FileState.PROCESSING) {
+    // Wait for processing to complete by displaying dots
+    process.stdout.write("Processing");
+    let dots = 0;
+    const interval = setInterval(() => {
       process.stdout.write(".");
-      // Sleep for 10 seconds
-      await new Promise((resolve) => setTimeout(resolve, 10_000));
-      // Fetch the file from the API again
-      file = await fileManager.getFile(uploadResult.file.name);
+      dots++;
+      if (dots > 50) {
+        process.stdout.write("\n");
+        dots = 0;
+      }
+    }, 1000);
+
+    try {
+      // Generate content with the file
+      const result = await genAI.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { fileData: { fileUri: file.uri, mimeType: "audio/mp3" } }
+            ]
+          }
+        ]
+      });
+      
+      clearInterval(interval);
+      process.stdout.write("\n");
+      console.log("Summary generated successfully.");
+      
+      return result.text;
+    } catch (error) {
+      clearInterval(interval);
+      process.stdout.write("\n");
+      console.error("Error generating summary:", error);
+      throw error;
     }
-
-    // Check for processing errors
-    if (file.state === FileState.FAILED) {
-      throw new Error("Audio processing failed.");
-    }
-    
-    console.log(`\nAudio processing completed. Generating summary...`);
-
-    // Generate summary using the processed audio
-    const genAI = new GoogleGenerativeAI(this.apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: options.model || "gemini-1.5-flash" 
-    });
-    
-    const result = await model.generateContent([
-      prompt,
-      {
-        fileData: {
-          fileUri: uploadResult.file.uri,
-          mimeType: "audio/mp3",
-        },
-      },
-    ]);
-
-    console.log("Summary generated successfully.");
-    return result.response.text();
   }
-  
+
+  getPrompt(options) {
+    if (options.customPrompt) {
+      return options.customPrompt;
+    } else if (options.promptType && this.prompts[options.promptType]) {
+      return this.prompts[options.promptType];
+    } else {
+      return this.prompts.default;
+    }
+  }
+
   /**
    * Get available prompt types
    * @returns {Object} - Object with available prompt types
