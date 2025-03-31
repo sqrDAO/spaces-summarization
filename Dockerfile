@@ -2,7 +2,8 @@
 FROM node:18-alpine3.19
 
 # Install Python and other dependencies
-RUN apk add --no-cache python3 py3-pip ffmpeg-libs
+RUN apk add --no-cache python3 py3-pip 
+RUN apk add --no-cache ffmpeg
 
 # Set working directory
 WORKDIR /app

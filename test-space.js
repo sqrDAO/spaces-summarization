@@ -7,7 +7,7 @@ import path from 'path';
 dotenv.config();
 
 // Test configuration
-const spacesUrl = 'https://x.com/virtuals_io/status/1889479317157216616'; // Replace with a real space URL
+const spacesUrl = 'https://x.com/i/spaces/1rmxPywblayKN'; // Replace with a real space URL
 const outputDir = './test-audios';
 
 async function testSpaceSummarization() {
