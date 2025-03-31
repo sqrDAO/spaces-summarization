@@ -32,8 +32,8 @@ ENV OUTPUT_DIR=/app/audios
 # Expose port
 EXPOSE 3000
 
-# Set volume for persistent storage
-VOLUME [ "/app/audios" ]
+# # Set volume for persistent storage
+# VOLUME [ "/app/audios" ]
 
 # Start the service
 CMD ["node", "api/index.js"]
