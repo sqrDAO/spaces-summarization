@@ -209,10 +209,10 @@ class YtDlpService {
               const barLength = 30;
               const completedLength = Math.round(barLength * (parseFloat(percent) / 100));
               const bar = '█'.repeat(completedLength) + '░'.repeat(barLength - completedLength);
-              processYtd.stdout.write(`\r\x1b[K[${bar}] ${percent}%`);
+              process.stdout.write(`\r\x1b[K[${bar}] ${percent}%`);
             } else {
               // Fall back to the whole line if we can't extract percentage
-              processYtd.stdout.write('\r\x1b[K' + line.trim());
+              process.stdout.write('\r\x1b[K' + line.trim());
             }
             lastProgressLine = line.trim();
           }
@@ -246,7 +246,7 @@ class YtDlpService {
       // Handle process completion
       processYtd.on('close', (code) => {
         // Clear the progress line
-        processYtd.stdout.write('\r\x1b[K');
+        process.stdout.write('\r\x1b[K');
         
         if (code === 0) {
           console.log(`✅ Download completed: ${path.basename(outputPath)}`);
