@@ -179,7 +179,7 @@ class YtDlpService {
       console.log(`Output file: ${path.basename(outputPath)}`);
       
       // Use spawn with progress flags but capture output
-      const process = spawn(this.ytDlpPath, [
+      const processYtd = spawn(this.ytDlpPath, [
         '-i',
         '--progress',
         '--newline',
@@ -188,13 +188,13 @@ class YtDlpService {
         '--console-title',   // Updates terminal title with progress
         spacesLink,
         '-o', outputPath
-      ], { stdio: ['ignore', 'pipe', 'pipe'] }); // Capture output instead of inheriting
+      ], { stdio: ['pipe', 'pipe', 'pipe'] }); // Capture output instead of inheriting
       
       // Track the last progress line
       let lastProgressLine = '';
       
       // Extract and display only the progress percentage
-      process.stdout.on('data', (data) => {
+      processYtd.stdout.on('data', (data) => {
         const output = data.toString();
         // Look for lines with download progress indicators
         const lines = output.split('\n');
@@ -209,10 +209,10 @@ class YtDlpService {
               const barLength = 30;
               const completedLength = Math.round(barLength * (parseFloat(percent) / 100));
               const bar = '█'.repeat(completedLength) + '░'.repeat(barLength - completedLength);
-              process.stdout.write(`\r\x1b[K[${bar}] ${percent}%`);
+              processYtd.stdout.write(`\r\x1b[K[${bar}] ${percent}%`);
             } else {
               // Fall back to the whole line if we can't extract percentage
-              process.stdout.write('\r\x1b[K' + line.trim());
+              processYtd.stdout.write('\r\x1b[K' + line.trim());
             }
             lastProgressLine = line.trim();
           }
@@ -220,7 +220,7 @@ class YtDlpService {
       });
       
       // Improve error filtering - suppress all common FFmpeg/HLS errors
-      process.stderr.on('data', (data) => {
+      processYtd.stderr.on('data', (data) => {
         // In most cases, we want to suppress these errors as they're just informational
         // or related to the HLS stream details, not actual failures
         const error = data.toString().trim();
@@ -238,11 +238,15 @@ class YtDlpService {
           console.error(`Error: ${error}`);
         }
       });
+  
+      // Handle stdin error on both parent and child processes
+      processYtd.stdin.on("error", (error) => console.error(error));
+      process.stdin.on("error", (error) => console.error(error));
       
       // Handle process completion
-      process.on('close', (code) => {
+      processYtd.on('close', (code) => {
         // Clear the progress line
-        process.stdout.write('\r\x1b[K');
+        processYtd.stdout.write('\r\x1b[K');
         
         if (code === 0) {
           console.log(`✅ Download completed: ${path.basename(outputPath)}`);
@@ -258,7 +262,7 @@ class YtDlpService {
       });
       
       // Handle process errors
-      process.on('error', (error) => {
+      processYtd.on('error', (error) => {
         console.error(`Error executing yt-dlp: ${error.message}`);
         reject(error);
       });
