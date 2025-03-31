@@ -21,7 +21,7 @@ jobs:
       - name: Set environment variable
         run: |
           SHORT_SHA_COMMIT=$(git rev-parse --short HEAD)
-          echo CONTAINER_RELEASE_IMAGE=ghcr.io/sqrDAO/spaces-summarization:${GITHUB_REF_NAME}_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
+          echo CONTAINER_RELEASE_IMAGE=ghcr.io/sqrdao/spaces-summarization:${GITHUB_REF_NAME}_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
@@ -39,7 +39,7 @@ jobs:
       - name: Set environment variable
         run: |
           SHORT_SHA_COMMIT=$(git rev-parse --short HEAD)
-          echo CONTAINER_RELEASE_IMAGE=ghcr.io/sqrDAO/spaces-summarization:${GITHUB_REF_NAME}_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
+          echo CONTAINER_RELEASE_IMAGE=ghcr.io/sqrdao/spaces-summarization:${GITHUB_REF_NAME}_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
           echo REPO_MANIFEST_NAME=gitops >> $GITHUB_ENV
           echo REPO_MANIFEST_URL=github.com/sqrDAO/gitops.git >> $GITHUB_ENV
           echo REPO_MANIFEST_BRANCH=main >> $GITHUB_ENV
