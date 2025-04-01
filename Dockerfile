@@ -1,5 +1,5 @@
 # Base image
-FROM node:18-alpine3.19
+FROM node:18-alpine3.20
 
 # Install Python and other dependencies
 RUN apk add --no-cache python3 py3-pip 
