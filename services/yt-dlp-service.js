@@ -186,6 +186,8 @@ class YtDlpService {
         '--quiet',           // Very quiet, only show errors
         '--no-warnings',     // Reduces non-essential output
         '--console-title',   // Updates terminal title with progress
+        '-x', // Extract audio
+        '--audio-format', 'mp3', // Convert to mp3
         spacesLink,
         '-o', outputPath
       ], { stdio: ['ignore', 'pipe', 'pipe'] }); // Capture output instead of inheriting
