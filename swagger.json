@@ -30,6 +30,27 @@
           }
         }
       },
+      "DownloadResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "outputPath": {
+            "type": "string",
+            "example": "audios/abcdef123456.mp3"
+          },
+          "filename": {
+            "type": "string",
+            "example": "abcdef123456.mp3"
+          },
+          "cached": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
       "SummarizeRequest": {
         "type": "object",
         "required": ["spacesUrl"],
@@ -48,38 +69,258 @@
           }
         }
       },
+      "SummarizeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "summary": {
+            "type": "string",
+            "example": "This Twitter Space discussed the following topics: 1) Recent developments in AI technology..."
+          },
+          "audioFile": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "example": "audios/abcdef123456.mp3"
+              },
+              "filename": {
+                "type": "string",
+                "example": "abcdef123456.mp3"
+              },
+              "cached": {
+                "type": "boolean",
+                "example": false
+              }
+            }
+          }
+        }
+      },
+      "AsyncJobResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Job started"
+          },
+          "jobId": {
+            "type": "string",
+            "example": "job_1647582390_a1b2c3"
+          }
+        }
+      },
       "Job": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "example": "job_1647582390_a1b2c3"
           },
           "type": {
             "type": "string",
-            "enum": ["download", "summarize"]
+            "enum": ["download", "summarize"],
+            "example": "summarize"
           },
           "status": {
             "type": "string",
-            "enum": ["queued", "processing", "completed", "failed"]
+            "enum": ["queued", "processing", "downloading", "uploading", "summarizing", "completed", "failed"],
+            "example": "processing"
           },
           "params": {
-            "type": "object"
+            "type": "object",
+            "example": {
+              "spacesUrl": "https://twitter.com/i/spaces/1MYGNnOXbDbJw",
+              "promptType": "formatted"
+            }
           },
           "createdAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2023-04-20T14:30:00.000Z"
           },
           "updatedAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "example": "2023-04-20T14:32:15.000Z"
           },
           "result": {
             "type": "object",
-            "nullable": true
+            "nullable": true,
+            "example": {
+              "summary": "This Twitter Space discussed...",
+              "audioFile": {
+                "outputPath": "audios/abcdef123456.mp3",
+                "filename": "abcdef123456.mp3",
+                "cached": false
+              }
+            }
           },
           "error": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "example": null
+          }
+        }
+      },
+      "JobsListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            }
+          }
+        }
+      },
+      "JobResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          }
+        }
+      },
+      "QueueStatusResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "queued": {
+                "type": "integer",
+                "example": 2
+              },
+              "running": {
+                "type": "integer",
+                "example": 1
+              },
+              "total": {
+                "type": "integer",
+                "example": 10
+              }
+            }
+          },
+          "jobs": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "example": 10
+              },
+              "queued": {
+                "type": "integer",
+                "example": 2
+              },
+              "processing": {
+                "type": "integer",
+                "example": 3
+              },
+              "completed": {
+                "type": "integer",
+                "example": 4
+              },
+              "failed": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          }
+        }
+      },
+      "PromptListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "availablePrompts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "default": "Please summarize the content of this audio file...",
+              "formatted": "Create a structured summary with bullet points..."
+            }
+          }
+        }
+      },
+      "UploadRequest": {
+        "type": "object",
+        "required": ["filePath"],
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "example": "/path/to/audio/file.mp3"
+          }
+        }
+      },
+      "UploadResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "uploadedFile": {
+            "type": "object",
+            "properties": {
+              "uri": {
+                "type": "string",
+                "example": "gs://genai-files/abcdef123456"
+              },
+              "fileName": {
+                "type": "string",
+                "example": "file.mp3"
+              },
+              "originalPath": {
+                "type": "string",
+                "example": "/path/to/audio/file.mp3"
+              }
+            }
+          }
+        }
+      },
+      "SummarizeUploadedRequest": {
+        "type": "object",
+        "required": ["fileUri"],
+        "properties": {
+          "fileUri": {
+            "type": "string",
+            "example": "gs://genai-files/abcdef123456"
+          },
+          "mimeType": {
+            "type": "string",
+            "example": "audio/mp3"
+          },
+          "promptType": {
+            "type": "string",
+            "example": "formatted"
+          },
+          "customPrompt": {
+            "type": "string",
+            "example": "Create a concise summary of this audio file."
           }
         }
       },
@@ -87,10 +328,12 @@
         "type": "object",
         "properties": {
           "error": {
-            "type": "string"
+            "type": "string",
+            "example": "API Error"
           },
           "message": {
-            "type": "string"
+            "type": "string",
+            "example": "An unexpected error occurred"
           }
         }
       }
@@ -129,7 +372,7 @@
     "/api/download-spaces": {
       "post": {
         "summary": "Download audio from a Twitter Space (synchronous)",
-        "description": "Not recommended for large files due to potential timeout. Use async version instead.",
+        "description": "Download audio from a Twitter Space. Not recommended for large files due to potential timeout.",
         "requestBody": {
           "required": true,
           "content": {
@@ -146,41 +389,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "outputPath": {
-                      "type": "string",
-                      "example": "audios/abcdef123456.mp3"
-                    },
-                    "filename": {
-                      "type": "string",
-                      "example": "abcdef123456.mp3"
-                    },
-                    "cached": {
-                      "type": "boolean",
-                      "example": false
-                    }
-                  }
+                  "$ref": "#/components/schemas/DownloadResponse"
                 }
               }
             }
           },
           "400": {
             "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -204,13 +419,389 @@
     },
     "/api/summarize-spaces": {
       "post": {
-        "summary": "Download and summarize a Twitter Space",
+        "summary": "Download and summarize a Twitter Space (synchronous)",
+        "description": "Download audio from a Twitter Space and generate a summary. Not recommended for large files due to potential timeout.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SummarizeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully summarized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummarizeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/async/download-spaces": {
+      "post": {
+        "summary": "Start asynchronous download of Twitter Space audio",
+        "description": "Start a job to download audio from a Twitter Space. Returns immediately with a job ID.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Download job started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/async/summarize-spaces": {
+      "post": {
+        "summary": "Start asynchronous summarization of Twitter Space audio",
+        "description": "Start a job to download and summarize audio from a Twitter Space. Returns immediately with a job ID.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummarizeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Summarization job started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncJobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prompts": {
+      "get": {
+        "summary": "Get available prompt templates",
+        "description": "Returns a list of available prompt templates for summarization.",
+        "responses": {
+          "200": {
+            "description": "List of available prompts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptListResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "summary": "List all jobs",
+        "description": "Returns a list of all jobs in the system.",
+        "responses": {
+          "200": {
+            "description": "List of jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobsListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{jobId}": {
+      "get": {
+        "summary": "Get job status and result",
+        "description": "Returns details for a specific job by ID.",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID of the job to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/queue-status": {
+      "get": {
+        "summary": "Get download queue status",
+        "description": "Returns statistics about the download queue and job system.",
+        "responses": {
+          "200": {
+            "description": "Current queue statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatusResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/upload-audio": {
+      "post": {
+        "summary": "Upload an audio file to Google AI",
+        "description": "Upload an existing audio file from the server to Google AI for processing.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/summarize-uploaded": {
+      "post": {
+        "summary": "Summarize an already uploaded file",
+        "description": "Generate a summary for a file that has already been uploaded to Google AI.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummarizeUploadedRequest"
               }
             }
           }
@@ -229,21 +820,7 @@
                     },
                     "summary": {
                       "type": "string",
-                      "example": "This Twitter Space discussed the future of AI technology..."
-                    },
-                    "audioFile": {
-                      "type": "object",
-                      "properties": {
-                        "path": {
-                          "type": "string"
-                        },
-                        "filename": {
-                          "type": "string"
-                        },
-                        "cached": {
-                          "type": "boolean"
-                        }
-                      }
+                      "example": "This audio file discusses the following topics..."
                     }
                   }
                 }
@@ -256,39 +833,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/prompts": {
-      "get": {
-        "summary": "Get available prompt templates",
-        "responses": {
-          "200": {
-            "description": "List of available prompts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "availablePrompts": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      },
-                      "example": {
-                        "default": "Please summarize the content of this audio file...",
-                        "formatted": "Create a structured summary with bullet points..."
-                      }
-                    }
-                  }
                 }
               }
             }
@@ -302,187 +846,13 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/async/download-spaces": {
-      "post": {
-        "summary": "Start asynchronous download of Twitter Space audio",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DownloadRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": "Download job started",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Download job started"
-                    },
-                    "jobId": {
-                      "type": "string",
-                      "example": "job_1647582390_a1b2c3"
-                    }
-                  }
-                }
-              }
-            }
           },
-          "400": {
-            "description": "Bad request",
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/jobs/{jobId}": {
-      "get": {
-        "summary": "Get job status and result",
-        "parameters": [
-          {
-            "name": "jobId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "ID of the job to retrieve"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Job details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "job": {
-                      "$ref": "#/components/schemas/Job"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/jobs": {
-      "get": {
-        "summary": "List all jobs",
-        "responses": {
-          "200": {
-            "description": "List of jobs",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "jobs": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Job"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/queue-status": {
-      "get": {
-        "summary": "Get download queue status",
-        "responses": {
-          "200": {
-            "description": "Current queue statistics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "stats": {
-                      "type": "object",
-                      "properties": {
-                        "queued": {
-                          "type": "number"
-                        },
-                        "running": {
-                          "type": "number"
-                        },
-                        "total": {
-                          "type": "number"
-                        }
-                      }
-                    },
-                    "jobs": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "number"
-                        },
-                        "queued": {
-                          "type": "number"
-                        },
-                        "processing": {
-                          "type": "number"
-                        },
-                        "completed": {
-                          "type": "number"
-                        },
-                        "failed": {
-                          "type": "number"
-                        }
-                      }
-                    }
-                  }
                 }
               }
             }
