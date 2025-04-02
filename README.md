@@ -1,6 +1,6 @@
 # Twitter Spaces Summarization
 
-A service for downloading Twitter Spaces audio and generating summaries with Google's Generative AI.
+A service for downloading Twitter Spaces audio and generating summaries with Google's Generative AI (Gemini).
 
 ## Prerequisites
 
@@ -64,7 +64,9 @@ Include your API key in the header of all requests:
 X-API-Key: your-secret-key
 ```
 
-### Download a Twitter Space (Not recommend, please use the Asynchronous version)
+## Synchronous API (Not recommended for large files)
+
+### Download a Twitter Space
 
 ```bash
 curl -X POST http://localhost:3000/api/download-spaces \
@@ -87,26 +89,7 @@ curl -X POST http://localhost:3000/api/summarize-spaces \
   }'
 ```
 
-### Using Custom Prompts
-
-```bash
-curl -X POST http://localhost:3000/api/summarize-spaces \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-secret-key" \
-  -d '{
-    "spacesUrl": "https://twitter.com/i/spaces/YOUR_SPACE_ID",
-    "customPrompt": "Create a concise summary of this Twitter Space focusing only on the main topics discussed."
-  }'
-```
-
-### Get Available Prompt Types
-
-```bash
-curl -X GET http://localhost:3000/api/prompts \
-  -H "X-API-Key: your-secret-key"
-```
-
-## Asynchronous API
+## Asynchronous API (Recommended)
 
 For long downloads or when handling multiple requests, use the asynchronous endpoints:
 
@@ -121,14 +104,28 @@ curl -X POST http://localhost:3000/api/async/download-spaces \
   }'
 ```
 
-This returns immediately with a job ID:
+### Start an Asynchronous Summarization
+
+```bash
+curl -X POST http://localhost:3000/api/async/summarize-spaces \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "spacesUrl": "https://twitter.com/i/spaces/YOUR_SPACE_ID",
+    "promptType": "formatted"
+  }'
+```
+
+Async requests return immediately with a job ID:
 ```json
 {
   "success": true,
-  "message": "Download job started",
+  "message": "Job started",
   "jobId": "job_1647582390_a1b2c3"
 }
 ```
+
+## Job Management
 
 ### Check Job Status
 
@@ -158,9 +155,78 @@ A web-based job monitoring dashboard is available at:
 http://localhost:3000/jobs.html
 ```
 
+## Advanced API Features
+
+### Upload an Audio File
+
+Upload an existing audio file without downloading from Twitter:
+
+```bash
+curl -X POST http://localhost:3000/api/upload-audio \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "filePath": "/path/to/local/audio.mp3"
+  }'
+```
+
+### Summarize an Uploaded File
+
+Summarize an already uploaded file using its URI:
+
+```bash
+curl -X POST http://localhost:3000/api/summarize-uploaded \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "fileUri": "gs://genai-files/abcdef123456",
+    "promptType": "formatted"
+  }'
+```
+
+### Using Custom Prompts
+
+Any summarization endpoint supports custom prompts:
+
+```bash
+curl -X POST http://localhost:3000/api/summarize-spaces \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -d '{
+    "spacesUrl": "https://twitter.com/i/spaces/YOUR_SPACE_ID",
+    "customPrompt": "Create a concise summary of this Twitter Space focusing only on the main topics discussed."
+  }'
+```
+
+### Get Available Prompt Types
+
+```bash
+curl -X GET http://localhost:3000/api/prompts \
+  -H "X-API-Key: your-secret-key"
+```
+
 ## API Documentation
 
 Access the Swagger UI documentation at `http://localhost:3000/api-docs`
+
+You can also import the API directly into Postman using:
+```
+http://localhost:3000/swagger.json
+```
+
+## Testing
+
+Run the built-in tests to verify your setup:
+
+```bash
+# Test the full pipeline (download + upload + summarize)
+node test-space.js
+
+# Test specific components
+node test-space.js download
+node test-space.js upload ./path/to/file.mp3
+node test-space.js summarize gs://genai-files/your-file-uri formatted
+```
 
 ## Getting a Google API Key
 
