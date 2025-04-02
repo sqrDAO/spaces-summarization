@@ -186,6 +186,7 @@ class YtDlpService {
         '--quiet',           // Very quiet, only show errors
         '--no-warnings',     // Reduces non-essential output
         '--console-title',   // Updates terminal title with progress
+        '-N','10', // Number of threads 
         '-x', // Extract audio
         '--audio-format', 'mp3', // Convert to mp3
         spacesLink,
