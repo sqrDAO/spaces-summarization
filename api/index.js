@@ -8,6 +8,7 @@ import swaggerJsDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import createRoutes from './routes.js';
 import { errorHandler } from '../middleware/error-handler.js';
+import customPrompts from '../config/prompts.js'; 
 
 // Load environment variables
 dotenv.config();
