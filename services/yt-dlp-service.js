@@ -191,14 +191,48 @@ class YtDlpService {
         '-o', outputPath
       ], { stdio: ['ignore', 'pipe', 'pipe'] }); // Capture output instead of inheriting
       
+      // Track the partial file size
+      const partialFile = `${outputPath}.part`;
+      let lastLoggedSize = 0;
+      const logThreshold = 100 * 1024 * 1024; // 100MB
+      
+      // Set up simple interval to check file size
+      const checkInterval = setInterval(() => {
+        if (fs.existsSync(partialFile)) {
+          try {
+            const stats = fs.statSync(partialFile);
+            const currentSize = stats.size;
+            
+            // Log progress every 100MB
+            if (currentSize - lastLoggedSize >= logThreshold) {
+              const mbDownloaded = Math.floor(currentSize / (1024 * 1024));
+              console.log(`📥 Downloaded ${mbDownloaded} MB so far...`);
+              lastLoggedSize = currentSize;
+            }
+          } catch (err) {
+            // Ignore errors reading the file
+          }
+        }
+      }, 1000); // Check every second
+      
       // Handle process completion
       processYtd.on('close', (code) => {
+        // Stop the progress interval
+        clearInterval(checkInterval);
+        
         // Clear the progress line
         process.stdout.write('\r\x1b[K');
         
         if (code === 0) {
-          console.log(`✅ Download completed: ${path.basename(outputPath)}`);
+          // Log final file size
           if (fs.existsSync(outputPath)) {
+            try {
+              const stats = fs.statSync(outputPath);
+              const mbDownloaded = Math.floor(stats.size / (1024 * 1024));
+              console.log(`✅ Download completed: ${path.basename(outputPath)} (${mbDownloaded} MB)`);
+            } catch (err) {
+              console.log(`✅ Download completed: ${path.basename(outputPath)}`);
+            }
             resolve();
           } else {
             reject(new Error('Download failed: Output file not found'));
@@ -211,6 +245,9 @@ class YtDlpService {
       
       // Handle process errors
       processYtd.on('error', (error) => {
+        // Stop the progress interval
+        clearInterval(checkInterval);
+        
         console.error(`Error executing yt-dlp: ${error.message}`);
         reject(error);
       });
