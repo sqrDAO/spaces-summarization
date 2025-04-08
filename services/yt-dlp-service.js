@@ -185,6 +185,7 @@ class YtDlpService {
         '--newline',
         '--quiet',           // Very quiet, only show errors
         '--no-warnings',     // Reduces non-essential output
+        '-N','3',      // Number of parallel connections to download
         '--console-title',   // Updates terminal title with progress
         spacesLink,
         '-o', outputPath
