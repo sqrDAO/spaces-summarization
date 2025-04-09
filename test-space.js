@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 // Test configuration
-const spacesUrl = 'https://x.com/i/spaces/1rmxPywblayKN'; // Replace with a real space URL
+const spacesUrl = 'https://x.com/i/broadcasts/1mnxegwvnWAGX'; // Replace with a real space URL
 const outputDir = './test-audios';
 
 // Get the directory name of the current module
