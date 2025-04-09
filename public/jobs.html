@@ -19,8 +19,73 @@
     .processing { background-color: #fff3cd; }
     .completed { background-color: #d4edda; }
     .failed { background-color: #f8d7da; }
-    button { padding: 5px 10px; cursor: pointer; }
+    button { padding: 5px 10px; cursor: pointer; margin-right: 4px; }
     pre { background: #f8f9fa; padding: 10px; overflow: auto; max-height: 400px; }
+    
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 800px;
+      max-height: 80%;
+      overflow: auto;
+      position: relative;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+    }
+    .log-viewer {
+      background-color: #222;
+      color: #ddd;
+      font-family: monospace;
+      white-space: pre-wrap;
+      padding: 10px;
+      border-radius: 4px;
+      height: 400px;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .modal-actions {
+      margin-top: 15px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .log-line {
+      margin: 0;
+      padding: 2px 0;
+      line-height: 1.3;
+    }
+    .log-info { color: #6bf; }
+    .log-error { color: #f66; }
+    .log-success { color: #6f6; }
+    .log-progress { color: #ff6; }
   </style>
 </head>
 <body>
@@ -63,6 +128,28 @@
   <div id="job-details" style="margin-top: 20px; display: none;">
     <h2>Job Details</h2>
     <pre id="details-content"></pre>
+  </div>
+  
+  <!-- Log Modal -->
+  <div id="logModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Job Log <span id="logModalJobId"></span></h2>
+        <span class="close">&times;</span>
+      </div>
+      <div id="logViewer" class="log-viewer"></div>
+      <div class="modal-actions">
+        <div>
+          <button onclick="loadFullLog()">View Full Log</button>
+          <button onclick="loadLastLines(20)">Last 20 Lines</button>
+          <button onclick="loadLastLines(50)">Last 50 Lines</button>
+          <button onclick="loadLastLines(100)">Last 100 Lines</button>
+        </div>
+        <div>
+          <label><input type="checkbox" id="autoRefreshLog"> Auto-refresh (5s)</label>
+        </div>
+      </div>
+    </div>
   </div>
   
   <script>
@@ -128,7 +215,10 @@
               <td><span class="status-badge ${job.status}">${job.status}</span></td>
               <td>${new Date(job.createdAt).toLocaleString()}</td>
               <td>${new Date(job.updatedAt).toLocaleString()}</td>
-              <td><button onclick="viewJobDetails('${job.id}')">View</button></td>
+              <td>
+                <button onclick="viewJobDetails('${job.id}')">View</button>
+                <button onclick="viewJobLog('${job.id}')">Log</button>
+              </td>
             `;
             activeTable.appendChild(row);
           });
@@ -151,6 +241,7 @@
               <td>${new Date(job.updatedAt).toLocaleString()}</td>
               <td>
                 <button onclick="viewJobDetails('${job.id}')">View</button>
+                <button onclick="viewJobLog('${job.id}')">Log</button>
               </td>
             `;
             completedTable.appendChild(row);
@@ -188,6 +279,161 @@
         console.error("Error loading job details:", error);
         alert("Error loading job details: " + error.message);
       }
+    }
+    
+    // Modal functionality
+    const modal = document.getElementById("logModal");
+    const closeButton = document.querySelector(".close");
+    
+    // Close the modal when the user clicks the × button
+    closeButton.onclick = function() {
+      modal.style.display = "none";
+      clearLogRefreshInterval();
+    }
+    
+    // Close the modal when the user clicks outside of it
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+        clearLogRefreshInterval();
+      }
+    }
+    
+    // Log refresh interval
+    let logRefreshInterval;
+    
+    function clearLogRefreshInterval() {
+      if (logRefreshInterval) {
+        clearInterval(logRefreshInterval);
+        logRefreshInterval = null;
+      }
+    }
+    
+    // View job log
+    async function viewJobLog(jobId, lines = 20) {
+      const apiKey = getApiKey();
+      if (!apiKey) return;
+      
+      // Set job ID in modal
+      document.getElementById('logModalJobId').textContent = jobId;
+      
+      // Show modal
+      modal.style.display = "block";
+      
+      // Load the log
+      await loadLastLines(lines);
+      
+      // Set up auto-refresh if checked
+      clearLogRefreshInterval();
+      const autoRefreshCheckbox = document.getElementById('autoRefreshLog');
+      autoRefreshCheckbox.onchange = function() {
+        if (this.checked) {
+          logRefreshInterval = setInterval(() => loadLastLines(lines), 5000);
+        } else {
+          clearLogRefreshInterval();
+        }
+      };
+      
+      // Set initial state of auto-refresh
+      if (autoRefreshCheckbox.checked) {
+        logRefreshInterval = setInterval(() => loadLastLines(lines), 5000);
+      }
+    }
+    
+    // Load last n lines of log
+    async function loadLastLines(lines = 20) {
+      const jobId = document.getElementById('logModalJobId').textContent;
+      if (!jobId) return;
+      
+      const apiKey = getApiKey();
+      if (!apiKey) return;
+      
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/logs/tail/${lines}`, {
+          headers: {
+            'X-API-Key': apiKey
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        const text = await response.text();
+        displayLog(text);
+      } catch (error) {
+        console.error("Error loading log:", error);
+        document.getElementById('logViewer').innerHTML = 
+          `<p class="log-line log-error">Error loading log: ${error.message}</p>`;
+      }
+    }
+    
+    // Load full log
+    async function loadFullLog() {
+      const jobId = document.getElementById('logModalJobId').textContent;
+      if (!jobId) return;
+      
+      const apiKey = getApiKey();
+      if (!apiKey) return;
+      
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/logs/raw`, {
+          headers: {
+            'X-API-Key': apiKey
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        const text = await response.text();
+        displayLog(text);
+      } catch (error) {
+        console.error("Error loading log:", error);
+        document.getElementById('logViewer').innerHTML = 
+          `<p class="log-line log-error">Error loading log: ${error.message}</p>`;
+      }
+    }
+    
+    // Display log with syntax highlighting
+    function displayLog(text) {
+      const logViewer = document.getElementById('logViewer');
+      
+      // Clear log viewer
+      logViewer.innerHTML = '';
+      
+      // Split into lines
+      const lines = text.split('\n');
+      
+      // Create a document fragment for better performance
+      const fragment = document.createDocumentFragment();
+      
+      lines.forEach(line => {
+        if (!line.trim()) return; // Skip empty lines
+        
+        const p = document.createElement('p');
+        p.className = 'log-line';
+        
+        // Apply syntax highlighting based on content
+        if (line.includes('[ERROR]')) {
+          p.className += ' log-error';
+        } else if (line.includes('[SUCCESS]')) {
+          p.className += ' log-success';
+        } else if (line.includes('[PROGRESS]') || line.includes('Downloaded')) {
+          p.className += ' log-progress';
+        } else {
+          p.className += ' log-info';
+        }
+        
+        p.textContent = line;
+        fragment.appendChild(p);
+      });
+      
+      logViewer.appendChild(fragment);
+      
+      // Scroll to bottom
+      logViewer.scrollTop = logViewer.scrollHeight;
     }
     
     // Load jobs on page load

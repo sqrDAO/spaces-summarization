@@ -13,7 +13,7 @@ class YtDlpService {
     // Create a download queue
     this.downloadQueue = new Queue((task, cb) => {
       // Call our internal download method
-      this._downloadAudio(task.spacesLink)
+      this._downloadAudio(task.spacesLink, task.jobId)
         .then(result => {
           // Update job status if this is async job
           if (task.jobId && this.jobsService) {
@@ -139,13 +139,20 @@ class YtDlpService {
   /**
    * Internal method: Actual download logic (called by the queue)
    * @param {string} spacesLink - URL of the Twitter Spaces
+   * @param {string} [jobId] - Optional job ID for progress tracking
    * @returns {Promise<Object>} - Result object with file path and cache status
    * @private
    */
-  async _downloadAudio(spacesLink) {
+  async _downloadAudio(spacesLink, jobId) {
     // Double-check cache (in case another request downloaded it while waiting in queue)
     const cachedFilePath = this.getCachedFile(spacesLink);
     if (cachedFilePath) {
+      // Log to job if we have job ID and jobsService
+      if (jobId && this.jobsService) {
+        this.jobsService.addJobLog(jobId, 
+          `Found cached file: ${path.basename(cachedFilePath)}`, 'info');
+      }
+      
       return {
         outputPath: cachedFilePath,
         cached: true,
@@ -157,8 +164,14 @@ class YtDlpService {
     const fileHash = this.generateHashFromLink(spacesLink);
     const outputPath = path.join(this.outputDir, `${fileHash}.mp3`);
     
+    // Log to job if we have job ID and jobsService
+    if (jobId && this.jobsService) {
+      this.jobsService.addJobLog(jobId, 
+        `Downloading to: ${path.basename(outputPath)}`, 'info');
+    }
+    
     // Download the file
-    await this.executeDownload(spacesLink, outputPath);
+    await this.executeDownload(spacesLink, outputPath, jobId);
     
     return {
       outputPath,
@@ -171,17 +184,25 @@ class YtDlpService {
    * Execute the yt-dlp command to download the audio
    * @param {string} spacesLink - URL of the Twitter Spaces
    * @param {string} outputPath - Full path where the file will be saved
+   * @param {string} [jobId] - Optional job ID for logging
    * @returns {Promise<void>}
    */
-  executeDownload(spacesLink, outputPath) {
+  executeDownload(spacesLink, outputPath, jobId) {
     return new Promise((resolve, reject) => {
       console.log(`Downloading from: ${spacesLink}`);
       console.log(`Output file: ${path.basename(outputPath)}`);
+      
+      // Log to job if we have job ID and jobsService
+      if (jobId && this.jobsService) {
+        this.jobsService.addJobLog(jobId, `Starting download from: ${spacesLink}`, 'info');
+        this.jobsService.addJobLog(jobId, `Output file: ${path.basename(outputPath)}`, 'info');
+      }
       
       // Use spawn with progress flags but capture output
       const processYtd = spawn(this.ytDlpPath, [
         '-i',
         '--progress',
+        '--progress-delta','60',
         '--newline',
         '--quiet',           // Very quiet, only show errors
         '--no-warnings',     // Reduces non-essential output
@@ -190,6 +211,32 @@ class YtDlpService {
         spacesLink,
         '-o', outputPath
       ], { stdio: ['ignore', 'pipe', 'pipe'] }); // Capture output instead of inheriting
+      
+      // Handle stdout for yt-dlp progress output
+      processYtd.stdout.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output) {
+          console.log(`[yt-dlp] ${output}`);
+          
+          // Log to job if we have job ID and jobsService
+          if (jobId && this.jobsService) {
+            this.jobsService.addJobLog(jobId, output, 'info');
+          }
+        }
+      });
+      
+      // Handle stderr for error output
+      processYtd.stderr.on('data', (data) => {
+        const error = data.toString().trim();
+        if (error) {
+          console.error(`[yt-dlp error] ${error}`);
+          
+          // Log to job if we have job ID and jobsService
+          if (jobId && this.jobsService) {
+            this.jobsService.addJobLog(jobId, error, 'error');
+          }
+        }
+      });
       
       // Track the partial file size
       const partialFile = `${outputPath}.part`;
@@ -206,11 +253,27 @@ class YtDlpService {
             // Log progress every 100MB
             if (currentSize - lastLoggedSize >= logThreshold) {
               const mbDownloaded = Math.floor(currentSize / (1024 * 1024));
-              console.log(`📥 Downloaded ${mbDownloaded} MB so far...`);
+              const message = `📥 Downloaded ${mbDownloaded} MB so far...`;
+              console.log(message);
               lastLoggedSize = currentSize;
+              
+              // Log to job if we have job ID and jobsService
+              if (jobId && this.jobsService) {
+                this.jobsService.addJobLog(jobId, message, 'progress', {
+                  bytes: currentSize,
+                  megabytes: mbDownloaded
+                });
+              }
             }
           } catch (err) {
             // Ignore errors reading the file
+            console.error(`Error reading partial file: ${err.message}`);
+            
+            // Log to job if we have job ID and jobsService
+            if (jobId && this.jobsService) {
+              this.jobsService.addJobLog(jobId, 
+                `Error reading partial file: ${err.message}`, 'error');
+            }
           }
         }
       }, 1000); // Check every second
@@ -229,16 +292,46 @@ class YtDlpService {
             try {
               const stats = fs.statSync(outputPath);
               const mbDownloaded = Math.floor(stats.size / (1024 * 1024));
-              console.log(`✅ Download completed: ${path.basename(outputPath)} (${mbDownloaded} MB)`);
+              const message = `✅ Download completed: ${path.basename(outputPath)} (${mbDownloaded} MB)`;
+              console.log(message);
+              
+              // Log to job if we have job ID and jobsService
+              if (jobId && this.jobsService) {
+                this.jobsService.addJobLog(jobId, message, 'success', {
+                  bytes: stats.size,
+                  megabytes: mbDownloaded
+                });
+              }
             } catch (err) {
-              console.log(`✅ Download completed: ${path.basename(outputPath)}`);
+              const message = `✅ Download completed: ${path.basename(outputPath)}`;
+              console.log(message);
+              
+              // Log to job if we have job ID and jobsService
+              if (jobId && this.jobsService) {
+                this.jobsService.addJobLog(jobId, message, 'success');
+              }
             }
             resolve();
           } else {
-            reject(new Error('Download failed: Output file not found'));
+            const errorMessage = 'Download failed: Output file not found';
+            console.error(errorMessage);
+            
+            // Log to job if we have job ID and jobsService
+            if (jobId && this.jobsService) {
+              this.jobsService.addJobLog(jobId, errorMessage, 'error');
+            }
+            
+            reject(new Error(errorMessage));
           }
         } else {
-          console.error(`❌ Download failed with exit code ${code}`);
+          const errorMessage = `❌ Download failed with exit code ${code}`;
+          console.error(errorMessage);
+          
+          // Log to job if we have job ID and jobsService
+          if (jobId && this.jobsService) {
+            this.jobsService.addJobLog(jobId, errorMessage, 'error');
+          }
+          
           reject(new Error(`yt-dlp process exited with code ${code}`));
         }
       });
@@ -248,7 +341,14 @@ class YtDlpService {
         // Stop the progress interval
         clearInterval(checkInterval);
         
-        console.error(`Error executing yt-dlp: ${error.message}`);
+        const errorMessage = `Error executing yt-dlp: ${error.message}`;
+        console.error(errorMessage);
+        
+        // Log to job if we have job ID and jobsService
+        if (jobId && this.jobsService) {
+          this.jobsService.addJobLog(jobId, errorMessage, 'error');
+        }
+        
         reject(error);
       });
     });

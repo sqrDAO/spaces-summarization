@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { apiKeyAuth } from '../middleware/auth.js';
+import fs from 'fs';  // Correct import statement
+import { execSync } from 'child_process';  // Also import execSync directly
 
 export default function createRoutes(services) {
   const router = Router();
@@ -530,6 +532,80 @@ export default function createRoutes(services) {
       success: true,
       jobs
     });
+  });
+
+  /**
+   * @swagger
+   * /api/jobs/{id}/logs/raw:
+   *   get:
+   *     summary: Get raw log file for a job
+   *     security:
+   *       - ApiKeyAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Raw job log file
+   */
+  router.get('/jobs/:id/logs/raw', (req, res) => {
+    const { id } = req.params;
+    const rawLog = jobsService.getRawJobLog(id);
+    
+    if (!rawLog) {
+      return res.status(404).send('Log file not found');
+    }
+    
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(rawLog);
+  });
+
+  /**
+   * @swagger
+   * /api/jobs/{id}/logs/tail/{lines}:
+   *   get:
+   *     summary: Get the last N lines of a job log
+   *     security:
+   *       - ApiKeyAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: lines
+   *         required: true
+   *         schema:
+   *           type: integer
+   *           default: 20
+   *     responses:
+   *       200:
+   *         description: Last N lines of the job log
+   */
+  router.get('/jobs/:id/logs/tail/:lines', (req, res) => {
+    const { id, lines } = req.params;
+    const logPath = jobsService.getJobLogPath(id);
+    
+    if (!fs.existsSync(logPath)) {
+      return res.status(404).send('Log file not found');
+    }
+    
+    try {
+      // Use shell command to get the last N lines
+      const numLines = parseInt(lines, 10) || 20;
+      //const tail = require('child_process').execSync(`tail -n ${numLines} "${logPath}"`, { encoding: 'utf8' });
+      const tail = execSync(`tail -n ${numLines} "${logPath}"`, { encoding: 'utf8' });
+
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(tail);
+    } catch (error) {
+      console.error(`Error reading tail of log for job ${id}:`, error);
+      res.status(500).send(`Error reading log: ${error.message}`);
+    }
   });
 
   return router;
